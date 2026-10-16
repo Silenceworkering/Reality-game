@@ -1,10 +1,11 @@
 import http from 'node:http';
 import { openDatabase } from './database.mjs';
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
+import { randomInt, randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { furniture, choices, validName } from '../../packages/shared/game.mjs';
+import { furniture, validName } from '../../packages/shared/game.mjs';
+import { choices, chapters, jobs, canChoose } from '../../packages/shared/story.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../web/public');
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -18,24 +19,26 @@ export async function createGame({ database = ':memory:', secure = false, origin
     CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user INTEGER REFERENCES users(id),expires BIGINT NOT NULL);
     CREATE TABLE IF NOT EXISTS ledger(id ${identity},user INTEGER REFERENCES users(id),operation TEXT NOT NULL,delta INTEGER NOT NULL,balance INTEGER NOT NULL CHECK(balance>=0),created BIGINT NOT NULL,UNIQUE(user,operation));
     CREATE TABLE IF NOT EXISTS dialogues(user INTEGER REFERENCES users(id),choice TEXT NOT NULL,created BIGINT NOT NULL,PRIMARY KEY(user,choice));
+    CREATE TABLE IF NOT EXISTS job_attempts(id TEXT PRIMARY KEY,user INTEGER REFERENCES users(id),job TEXT NOT NULL,sequence TEXT NOT NULL,started BIGINT NOT NULL,completed BIGINT);
     CREATE TABLE IF NOT EXISTS actions(user INTEGER REFERENCES users(id),key TEXT NOT NULL,result TEXT NOT NULL,PRIMARY KEY(user,key));`);
   });
   const limits = new Map();
   const transaction = db.transaction;
-  const snapshot = async id => { const u = await db.prepare('SELECT id,name,wallet,house,apartment,layout FROM users WHERE id=?').get(id); return { ...u, layout: JSON.parse(u.layout), history: await db.prepare('SELECT choice,created FROM dialogues WHERE user=? ORDER BY created').all(id), ledger: await db.prepare('SELECT delta,balance,operation FROM ledger WHERE user=? ORDER BY id DESC LIMIT 20').all(id) }; };
+  const snapshot = async id => { const u = await db.prepare('SELECT id,name,wallet,house,apartment,layout FROM users WHERE id=?').get(id); return { ...u, activeJob: await db.prepare('SELECT id,job,sequence,started FROM job_attempts WHERE user=? AND completed IS NULL AND started>? ORDER BY started DESC LIMIT 1').get(id,Date.now()-600000) || null, layout: JSON.parse(u.layout), history: await db.prepare('SELECT choice,created FROM dialogues WHERE user=? ORDER BY created').all(id), ledger: await db.prepare('SELECT delta,balance,operation FROM ledger WHERE user=? ORDER BY id DESC LIMIT 20').all(id) }; };
   const server = http.createServer(async (req, res) => {
     const send = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
     res.setHeader('X-Content-Type-Options','nosniff'); res.setHeader('Referrer-Policy','same-origin');
     res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const url = new URL(req.url, 'http://localhost');
-      if (url.pathname === '/health') { await db.prepare('SELECT 1 AS ok').get(); return send(200, { status: 'ok', version:'0.2.0', storage:db.postgres?'postgresql':'sqlite' }); }
+      if (url.pathname === '/api/v1/content' && req.method==='GET') return send(200,{choices,chapters,jobs});
+      if (url.pathname === '/health') { await db.prepare('SELECT 1 AS ok').get(); return send(200, { status: 'ok', version:'0.3.0', storage:db.postgres?'postgresql':'sqlite' }); }
       if (!url.pathname.startsWith('/api/')) {
         if (req.method !== 'GET') throw fail(405,'Метод недоступен');
         const path = url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
         const file = resolve(root, '.' + path);
         if (!file.startsWith(root + '/') || !existsSync(file)) throw fail(404,'Не найдено');
-        res.writeHead(200, { 'Content-Type': ({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'}[extname(file)] || 'application/octet-stream'), 'Cache-Control':'no-cache' }); return res.end(readFileSync(file));
+        res.writeHead(200, { 'Content-Type': ({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'}[extname(file)] || 'application/octet-stream'), 'Cache-Control':'no-cache' }); return res.end(readFileSync(file));
       }
       const now = Date.now();
       if (limits.size > 10000) for (const [key,value] of limits) if(value.until<now) limits.delete(key);
@@ -90,11 +93,28 @@ export async function createGame({ database = ':memory:', secure = false, origin
           } else if (body.type === 'move-sofa') {
             if(!user.layout.sofa || !['left','right'].includes(body.position)) throw fail(400,'Неверное место');
             await db.prepare('UPDATE users SET layout=? WHERE id=?').run(JSON.stringify({sofa:body.position}),id);
+          } else if (body.type === 'job-start') {
+            if (!Object.hasOwn(jobs,body.job)) throw fail(400,'Неизвестная работа');
+            const previous=await db.prepare('SELECT started FROM job_attempts WHERE user=? AND job=? ORDER BY started DESC LIMIT 1').get(id,body.job);
+            if(previous && now-previous.started<90000) throw fail(409,'Следующий заказ появится через полторы минуты после начала предыдущего.');
+            const sequence=Array.from({length:4},()=>randomInt(1,7));
+            await db.prepare('INSERT INTO job_attempts(id,user,job,sequence,started) VALUES(?,?,?,?,?)').run(body.key,id,body.job,JSON.stringify(sequence),now);
+          } else if (body.type === 'job-finish') {
+            const attempt=await db.prepare('SELECT * FROM job_attempts WHERE id=? AND user=?').get(body.attempt,id);
+            if(!attempt || attempt.completed) throw fail(409,'Заказ уже закрыт или не найден');
+            if(now-attempt.started<10000) throw fail(409,'Сверь заказ ещё раз. Работа занимает хотя бы 10 секунд.');
+            if(now-attempt.started>600000) throw fail(409,'Заказ истёк. Возьми новый.');
+            if(!Array.isArray(body.answer)||JSON.stringify(body.answer)!==attempt.sequence) throw fail(400,'Порядок не совпал с нарядом');
+            const reward=jobs[attempt.job].reward;
+            await db.prepare('UPDATE job_attempts SET completed=? WHERE id=?').run(now,attempt.id);
+            await db.prepare('UPDATE users SET wallet=wallet+? WHERE id=?').run(reward,id);
+            await db.prepare('INSERT INTO ledger(user,operation,delta,balance,created) VALUES(?,?,?,?,?)').run(id,body.key,reward,user.wallet+reward,now);
           } else if (body.type === 'dialogue') {
-            if (!Object.hasOwn(choices,body.choice)) throw fail(400,'Неизвестная реплика');
-            if(body.choice==='zero' && !user.history.some(h=>h.choice==='hello')) throw fail(409,'Сначала познакомься с Тамарой');
-            if(body.choice==='plumber' && !user.history.some(h=>h.choice==='zero')) throw fail(409,'Сначала узнай о квартире №0');
-            await db.prepare('INSERT OR IGNORE INTO dialogues VALUES(?,?,?)').run(id,body.choice,now);
+            if(!Object.hasOwn(choices,body.choice)) throw fail(400,'Неизвестная реплика');
+            const node=choices[body.choice];
+            if(!canChoose(body.choice,user.history)) throw fail(409,'Этот выбор уже сделан или ещё недоступен');
+            await db.prepare('INSERT INTO dialogues VALUES(?,?,?)').run(id,body.choice,now);
+            if(node.reward){await db.prepare('UPDATE users SET wallet=wallet+? WHERE id=?').run(node.reward,id);await db.prepare('INSERT INTO ledger(user,operation,delta,balance,created) VALUES(?,?,?,?,?)').run(id,body.key,node.reward,user.wallet+node.reward,now);}
           } else throw fail(400,'Неизвестное действие');
           const state=await snapshot(id); await db.prepare('INSERT INTO actions VALUES(?,?,?)').run(id,body.key,JSON.stringify(state)); return state;
         }); return send(200,result);

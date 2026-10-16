@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createGame } from '../apps/server/server.mjs';
 import { validName, allowedApartment } from '../packages/shared/game.mjs';
+import { choices, canChoose } from '../packages/shared/story.mjs';
 
 async function setup(t, database) {
  const game=await createGame({database});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));
@@ -13,6 +14,34 @@ async function setup(t, database) {
 }
 const account=(name='Сосед')=>({name,password:'strong-password-123'});
 test('names and ownership reject forged input',()=>{assert.equal(validName('<script>'),false);assert.equal(validName('Сосед'),true);assert.equal(allowedApartment(1,2),false);});
+test('full story has two exclusive branches and one-off rewards',async t=>{
+ const {client}=await setup(t);const request=client();await request('/api/v1/auth/register',account('История'));
+ let history=[],wallet=5000;
+ for(const [choice,node] of Object.entries(choices)){
+  if(['joke','planArt'].includes(choice))continue;
+  assert.ok(canChoose(choice,history),choice);
+  const payload={type:'dialogue',choice,key:'chapter-'+choice};
+  const result=await request('/api/v1/action',payload);assert.equal(result.status,200,choice+JSON.stringify(result.data));wallet+=node.reward||0;assert.equal(result.data.wallet,wallet);
+  const replay=await request('/api/v1/action',payload);assert.deepEqual(replay.data,result.data);
+  history=result.data.history;
+ }
+ assert.equal(history.length,18);assert.ok(history.some(h=>h.choice==='promise'));
+ for(const choice of ['joke','planArt','promise'])assert.equal((await request('/api/v1/action',{type:'dialogue',choice,key:'invalid-'+choice})).status,409);
+ assert.equal((await request('/api/v1/me')).data.wallet,wallet);
+});
+test('jobs reject forged rewards, early answers, bad order and double payment',async t=>{
+ const {client,game}=await setup(t);const request=client();await request('/api/v1/auth/register',account('Работник'));
+ let result=await request('/api/v1/action',{type:'job-start',job:'repair',key:'start-repair'});assert.equal(result.status,200);
+ const attempt=result.data.activeJob;const answer=JSON.parse(attempt.sequence);
+ assert.equal((await request('/api/v1/action',{type:'job-finish',attempt:attempt.id,answer,key:'too-early1'})).status,409);
+ assert.equal((await request('/api/v1/action',{type:'job-start',job:'repair',key:'cooldown1'})).status,409);
+ await game.db.prepare('UPDATE job_attempts SET started=? WHERE id=?').run(Date.now()-11000,attempt.id);
+ assert.equal((await request('/api/v1/action',{type:'job-finish',attempt:attempt.id,answer:[0,0,0,0],key:'bad-answer1'})).status,400);
+ const finish={type:'job-finish',attempt:attempt.id,answer,key:'finish-repair',reward:999999};
+ result=await request('/api/v1/action',finish);assert.equal(result.status,200);assert.equal(result.data.wallet,5600);assert.equal(result.data.activeJob,null);
+ assert.equal((await request('/api/v1/action',finish)).data.wallet,5600);
+ assert.equal((await request('/api/v1/action',{...finish,key:'second-pay1'})).status,409);
+});
 test('real user journey: registration, dialogue, purchase, placement, relogin',async t=>{
  const {client}=await setup(t);const request=client();
  let result=await request('/api/v1/auth/register',account());assert.equal(result.status,200);assert.equal(result.data.wallet,5000);assert.equal(result.data.apartment,1);assert.match(result.headers.get('set-cookie'),/HttpOnly/);

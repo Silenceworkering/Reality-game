@@ -1,1 +1,55 @@
-{"version":1,"assets":[{"path":"art.js","author":"Created for Reality-game by Codex","license":"CC0-1.0","type":"original procedural SVG illustration","status":"prototype art; replace with production illustrated assets"},{"path":"icon.svg","author":"Created for Reality-game by Codex","license":"CC0-1.0","status":"original icon"},{"path":"app.js portrait SVG","author":"Created for Reality-game by Codex","license":"CC0-1.0","status":"provisional portraits"}],"thirdPartyAssets":[],"fonts":"System Arial and Georgia, no font files distributed"}
+{
+  "version": 3,
+  "assets": [
+    {
+      "path": "assets/sofa.webp",
+      "source": "OpenAI image_gen; generated specifically for Reality-game, 2026-10-16",
+      "rights": "Original generated resource supplied with this project; no third-party game assets used",
+      "bytes": 327108,
+      "status": "pre-rendered realistic game illustration",
+      "format": "WebP quality 88, original composition and dimensions"
+    },
+    {
+      "path": "assets/semyon.webp",
+      "source": "OpenAI image_gen; generated specifically for Reality-game, 2026-10-16",
+      "rights": "Original generated resource supplied with this project; no third-party game assets used",
+      "bytes": 212596,
+      "status": "pre-rendered realistic game illustration",
+      "format": "WebP quality 88, original composition and dimensions"
+    },
+    {
+      "path": "assets/portraits.webp",
+      "source": "OpenAI image_gen; generated specifically for Reality-game, 2026-10-16",
+      "rights": "Original generated resource supplied with this project; no third-party game assets used",
+      "bytes": 223178,
+      "status": "pre-rendered realistic game illustration",
+      "format": "WebP quality 88, original composition and dimensions"
+    },
+    {
+      "path": "assets/apartment.webp",
+      "source": "OpenAI image_gen; generated specifically for Reality-game, 2026-10-16",
+      "rights": "Original generated resource supplied with this project; no third-party game assets used",
+      "bytes": 317540,
+      "status": "pre-rendered realistic game illustration",
+      "format": "WebP quality 88, original composition and dimensions"
+    },
+    {
+      "path": "assets/district.webp",
+      "source": "OpenAI image_gen; generated specifically for Reality-game, 2026-10-16",
+      "rights": "Original generated resource supplied with this project; no third-party game assets used",
+      "bytes": 585132,
+      "status": "pre-rendered realistic game illustration",
+      "format": "WebP quality 88, original composition and dimensions"
+    },
+    {
+      "path": "assets/common-room.webp",
+      "source": "OpenAI image_gen; generated specifically for Reality-game, 2026-10-16",
+      "rights": "Original generated resource supplied with this project; no third-party game assets used",
+      "bytes": 470764,
+      "status": "pre-rendered realistic game illustration",
+      "format": "WebP quality 88, original composition and dimensions"
+    }
+  ],
+  "thirdPartyAssets": [],
+  "fonts": "System Georgia and Arial; no font files distributed"
+}

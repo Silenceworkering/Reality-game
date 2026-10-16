@@ -13,3 +13,7 @@
 ## Обновление 0.2: PostgreSQL
 
 DATABASE_URL выбирает pg Pool. Adapter использует AsyncLocalStorage для transaction-scoped client, BEGIN/COMMIT/ROLLBACK и pg_advisory_xact_lock для сериализации всех записей (включая присвоение квартир и идемпотентные покупки) между процессами. Число соединений ограничено 5. SQL placeholders параметризованы. SQLite остаётся локальным fallback, его async-транзакции также сериализованы mutex. createGame теперь async. Health проверяет SELECT 1. Runtime-ошибки логируются только кодом, без URL/паролей/SQL параметров.
+
+## 0.3: расширение без сброса
+
+Добавлена только job_attempts(id,user,job,sequence,started,completed); прежние таблицы не изменяются и данные не удаляются. Схема проверена на Neon-ветке verify-v03, users count до/после совпал. Новый story module сохраняет ID hello/zero/plumber; старые игроки продолжают с mailbox. Данные находок производны от dialogues; ветвление проверяется функцией canChoose на сервере. Подработки, награды и idempotency используют общий transaction scope. WebP-сцены не влияют на состояние и серверные права.

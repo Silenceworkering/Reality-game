@@ -16,3 +16,15 @@ JSON, same-origin. Ошибка: `{ "error": { "message": "...", "code": 400 } }
 Профиль: id, name, wallet, house, apartment, layout: {sofa: null|left|right}, history: [{choice,created}], ledger: [{delta,balance,operation}]. Все timestamps серверные Unix milliseconds.
 
 Нет OpenAPI/Zod, socket contracts, inventory/market/jobs/business endpoints: не реализованы. Эти интерфейсы нельзя рекламировать клиентам как доступные.
+
+## Обновление 0.3
+
+GET /api/v1/content — публичный каталог choices/chapters/jobs, без данных игроков.
+
+`dialogue` теперь принимает узлы из packages/shared/story.mjs; требует prerequisites/any и блокирует mutually exclusive choices и повтор. Денежные награды записываются с прогрессом в одной транзакции.
+
+`job-start`: {type, key, job: delivery|repair|service}. Ответ содержит профиль с activeJob: {id,job,sequence,started}. sequence — JSON-строка из четырёх номеров 1–6. Сервер генерирует её randomInt. Текущий прототип не скрывает ответ: это интерактивный заказ, не антибот-защита.
+
+`job-finish`: {type,key,attempt,answer: number[4]}. Чужой, закрытый, ранний (<10s), просроченный (>10min) или неверный заказ отклоняется. Сервер определяет награду и атомарно закрывает заказ/пополняет кошелёк/добавляет ledger/action. UUID idempotency key повторно возвращает исходный ответ. По истечении 90 секунд можно начать новый заказ того же типа; активный клиент предлагает продолжить незавершённый заказ.
+
+Поле profile.activeJob — последняя незавершённая попытка за 10 минут, иначе null. Старые поля профиля сохранены.
