@@ -1,0 +1,18 @@
+# Persistent disk requires a paid service. Single-instance prototype only.
+services:
+  - type: web
+    name: nu-zhivi
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    disk:
+      name: game-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_PATH
+        value: /app/data/game.sqlite
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: ORIGIN
+        sync: false

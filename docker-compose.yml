@@ -1,0 +1,13 @@
+services:
+  game:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_PATH: /app/data/game.sqlite
+      ORIGIN: http://localhost:3000
+    volumes:
+      - game-data:/app/data
+    restart: unless-stopped
+volumes:
+  game-data:

@@ -1,0 +1,4 @@
+export const furniture = Object.freeze({ sofa: { name: 'Диван «Ещё пять минут»', price: 2500 } });
+export const choices = Object.freeze({ hello: { text: 'Познакомиться с Тамарой', reply: 'Тамара Павловна: «Осваивайся. Чайник у меня всегда горячий. А нулевой квартиры у нас, конечно, нет. Почти».', relationship: 1 }, zero: { text: 'Спросить о квартире №0', reply: 'Тамара Павловна понижает голос: «В почтовом ящике без номера лежит письмо. Сначала познакомься с Мишей, он знает этот дом лучше всех».', relationship: 1 }, plumber: { text: 'Помочь Мише с инструментами', reply: 'Миша: «Спасибо, сосед. Держи ключ от почтового ящика. Если найдёшь письмо — не открывай на лестнице. Сквозняк».', relationship: 1 } });
+export function validName(name) { return typeof name === 'string' && /^[\p{L}\p{N}_ -]{3,24}$/u.test(name); }
+export function allowedApartment(owner, visitor) { return owner === visitor; }
