@@ -1,18 +1,17 @@
-# Persistent disk requires a paid service. Single-instance prototype only.
+# Free web service, durable data lives in Neon, never on the ephemeral disk.
 services:
   - type: web
     name: nu-zhivi
-    runtime: docker
-    plan: starter
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run check && npm run build
+    startCommand: npm start
     healthCheckPath: /health
-    disk:
-      name: game-data
-      mountPath: /app/data
-      sizeGB: 1
     envVars:
-      - key: DATABASE_PATH
-        value: /app/data/game.sqlite
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: DATABASE_URL
+        sync: false
       - key: COOKIE_SECURE
         value: "true"
-      - key: ORIGIN
-        sync: false

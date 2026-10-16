@@ -7,7 +7,7 @@ import { createGame } from '../apps/server/server.mjs';
 import { validName, allowedApartment } from '../packages/shared/game.mjs';
 
 async function setup(t, database) {
- const game=createGame({database});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));
+ const game=await createGame({database});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));
  t.after(()=>game.close());const base=`http://127.0.0.1:${game.server.address().port}`;
  const client=()=>{let cookie='';return async(path,body,headers={})=>{const response=await fetch(base+path,{method:body?'POST':'GET',headers:{...(body?{'Content-Type':'application/json'}:{}),Cookie:cookie,...headers},body:body?JSON.stringify(body):undefined});if(response.headers.has('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return {status:response.status,data:await response.json(),headers:response.headers};};};return {game,base,client};
 }
@@ -39,9 +39,9 @@ test('separate accounts, replay races, and protected mutations',async t=>{
 });
 test('data survives database reopen',async t=>{
  const directory=mkdtempSync(join(tmpdir(),'nu-zhivi-'));t.after(()=>rmSync(directory,{recursive:true,force:true}));const path=join(directory,'game.sqlite');
- let game=createGame({database:path});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));let base=`http://127.0.0.1:${game.server.address().port}`;
+ let game=await createGame({database:path});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));let base=`http://127.0.0.1:${game.server.address().port}`;
  await fetch(base+'/api/v1/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(account('Долгожитель'))});await game.close();
- game=createGame({database:path});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));t.after(()=>game.close());base=`http://127.0.0.1:${game.server.address().port}`;
+ game=await createGame({database:path});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));t.after(()=>game.close());base=`http://127.0.0.1:${game.server.address().port}`;
  const response=await fetch(base+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(account('Долгожитель'))});assert.equal(response.status,200);assert.equal((await response.json()).wallet,5000);
 });
 test('auth throttling, malformed requests, and health',async t=>{

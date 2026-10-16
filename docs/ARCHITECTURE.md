@@ -9,3 +9,7 @@
 Клиент: native ES modules, DOM-интерфейс, SVG-сцены. Состояние перезагружается из API, localStorage хранит только настройку движения. Никакая логика не зависит от FPS. Игровые часы и погода декоративны. Масштабирование 1 / 1.45 / 1.9; панорамирование нативной прокруткой, без drag-camera и pinch zoom. При отключённом JavaScript игра недоступна.
 
 Следующий архитектурный шаг — TypeScript strict, workspace packages, PostgreSQL migrations, repository layer с теми же интеграционными контрактами, затем авторизованный Socket.IO. Выбор Socket.IO для будущего этапа: комнаты, reconnect/ack, но право на действие и дедупликация всё равно на сервере. Сейчас никакого socket endpoint нет.
+
+## Обновление 0.2: PostgreSQL
+
+DATABASE_URL выбирает pg Pool. Adapter использует AsyncLocalStorage для transaction-scoped client, BEGIN/COMMIT/ROLLBACK и pg_advisory_xact_lock для сериализации всех записей (включая присвоение квартир и идемпотентные покупки) между процессами. Число соединений ограничено 5. SQL placeholders параметризованы. SQLite остаётся локальным fallback, его async-транзакции также сериализованы mutex. createGame теперь async. Health проверяет SELECT 1. Runtime-ошибки логируются только кодом, без URL/паролей/SQL параметров.

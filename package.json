@@ -1,1 +1,23 @@
-{"name":"nu-zhivi","version":"0.1.0","private":true,"type":"module","engines":{"node":">=24.0.0"},"workspaces":["apps/*","packages/*"],"scripts":{"start":"node apps/server/server.mjs","dev":"node --watch apps/server/server.mjs","test":"node --test tests/*.test.mjs","check":"node --check apps/server/server.mjs && node --check apps/web/public/app.js && node --check apps/web/public/art.js","build":"node scripts/build.mjs"}}
+{
+  "name": "nu-zhivi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "node apps/server/server.mjs",
+    "dev": "node --watch apps/server/server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check apps/server/server.mjs && node --check apps/web/public/app.js && node --check apps/web/public/art.js && node --check apps/server/database.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
+  }
+}
